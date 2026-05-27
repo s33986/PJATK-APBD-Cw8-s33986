@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using PJATK_APBD_Cw8_s33986.DTOs;
+using PJATK_APBD_Cw8_s33986.Exceptions;
 using PJATK_APBD_Cw8_s33986.Infrastructure;
 using PJATK_APBD_Cw8_s33986.Models;
 
@@ -53,5 +55,44 @@ public class PatientsService(HospitalDbContext context) : IPatientsService
                     )
                 )
             )))).ToListAsync(cancellationToken);
+    }
+
+    public async Task AssignBedAsync(string pesel, BedAssignmentRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var patientExists = await context.Patients.AnyAsync(p => p.Pesel == pesel, cancellationToken);
+        if (!patientExists)
+        {
+            throw new NotFoundException($"Pacjent o peselu {pesel} nie istnieje");
+        }
+        
+        var bedExists = await context.Beds.AnyAsync(b => b.Room.Ward.Name == request.ward && b.BedType.Name == request.bedType,cancellationToken);
+        if (!bedExists)
+        {
+            throw new NotFoundException($"Na oddziale {request.ward} nie znaleziono łóżka typu {request.bedType}");
+        }
+
+        var freeBed = await context.Beds
+            .Where(b => !b.BedAssignments.Any(ba =>
+                (request.to == null || ba.From < request.to) && (ba.To == null || request.from < ba.To)))
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (freeBed == null)
+        {
+            throw new ConflictException(
+                $"Łóżko: '{request.bedType}' na oddziale '{request.ward}' jest niedostępne w wybranym terminie");
+        }
+
+        var newAssignment = new BedAssignment
+        {
+            PatientPesel = pesel,
+            BedId = freeBed.Id,
+            From = request.from,
+            To = request.to,
+        };
+
+        context.BedAssignments.Add(newAssignment);
+        await context.SaveChangesAsync(cancellationToken);
+        
     }
 }
