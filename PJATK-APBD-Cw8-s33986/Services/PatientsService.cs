@@ -73,6 +73,7 @@ public class PatientsService(HospitalDbContext context) : IPatientsService
         }
 
         var freeBed = await context.Beds
+            .Where(b => b.Room.Ward.Name == request.ward && b.BedType.Name == request.bedType)
             .Where(b => !b.BedAssignments.Any(ba =>
                 (request.to == null || ba.From < request.to) && (ba.To == null || request.from < ba.To)))
             .FirstOrDefaultAsync(cancellationToken);
