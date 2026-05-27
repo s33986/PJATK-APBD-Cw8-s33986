@@ -11,7 +11,7 @@ namespace PJATK_APBD_Cw8_s33986.Controllers;
 public class PatientsController(IPatientsService service) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<List<Patient>>> GetAllPatientsAsync(string? search,
+    public async Task<IActionResult> GetAllPatientsAsync(string? search,
         CancellationToken cancellationToken)
     {
         return  Ok(await service.GetPatientsAsync(search, cancellationToken));
